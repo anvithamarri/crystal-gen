@@ -1,0 +1,8 @@
+numpy>=2.0.0
+pandas>=2.2.0
+pymatgen==2026.3.23
+pymatgen-core==2026.3.9
+pymatgen-io-validation==0.1.2
+pyzmq==27.1.0
+streamlit==1.55.0
+torch==2.10.0
