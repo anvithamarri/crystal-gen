@@ -68,7 +68,7 @@ def load_backend():
 
 # --- UI Setup ---
 st.set_page_config(page_title="Crystal-Gen Pro", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #00d4ff;'>💎 Crystal-Gen (CHGNet Powered)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #00d4ff;'>Crystal-Gen</h1>", unsafe_allow_html=True)
 
 # Initialize
 with st.spinner("Initializing AI & CHGNet..."):
