@@ -182,7 +182,8 @@ if run_button:
         if best_data:
             best_seq, best_score = best_data
             cif_output = tokenizer.decode(best_seq)
-                        st.divider()
+        
+            st.divider()
             
             # --- Post-Processing Options ---
             st.markdown("<div class='section-header'> Post-Processing Options</div>", unsafe_allow_html=True)
