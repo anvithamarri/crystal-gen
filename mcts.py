@@ -151,7 +151,7 @@ class MCTSEvaluator:
                 return -(1 - bond_length_score)
             else:
                 return -1.0
-      except Exception as e:
+    except Exception as e:
         print(f"exception while post-processing and validating: {e}")
         print(traceback.format_exc())
         return -1.0
