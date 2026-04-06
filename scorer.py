@@ -2,38 +2,36 @@ import random
 import zmq
 import numpy as np
 from pymatgen.core import Structure
-from chgnet.model import CHGNet  # FIX: Correct import
+from chgnet.model.dynamics import CHGNetCalculator  # ← Use this for relaxation + energy
 
 class CHGNetScorer:
     def __init__(self):
-        # FIX 1: Load model correctly
-        self.model = CHGNet.load()
-        # FIX 2: Remove Streamlit dependency - scorer.py shouldn't depend on Streamlit
-        print("CHGNet Loaded: Ready for Stability Prediction")
-        # NOTE: Removed st.info() - this is a library, not a UI component
+        # Initialize calculator for relaxation + energy prediction
+        self.calculator = CHGNetCalculator()
+        print("CHGNetCalculator Loaded: Ready for Structure Relaxation & Energy Prediction")
 
     def score(self, cif_string: str) -> float:
+        """
+        Relaxes the structure using CHGNet and returns energy as score.
+        Returns: Energy score (negative, so more stable = higher score for MCTS)
+        """
         try:
-            # FIX 3: Convert CIF to Structure
             struct = Structure.from_str(cif_string, fmt="cif")
             
-            # FIX 4: Use correct API for predictions
-            # predict_structure returns dict with 'e', 'f', 's' keys
-            prediction = self.model.predict_structure(struct)
+            # Predict relaxed structure (includes relaxation)
+            relaxed_struct = self.calculator.predict_structure(struct)
             
-            # FIX 5: Access correct key - 'e' for total energy, not 'energy'
-            energy = prediction['e']
+            # Get energy from relaxed structure
+            energy = relaxed_struct.info.get('energy', 0)
             
-            # FIX 6: Correct reward logic
-            # Lower (more negative) energy = more stable = higher reward
+            # Return negative energy (lower energy = more stable = higher score)
             reward = -energy
             
             return float(reward)
             
         except Exception as e:
-            # FIX 7: Better error handling
-            print(f"CHGNetScorer error: {e}")
-            return -10.0
+            print(f"CHGNetScorer error during relaxation: {e}")
+            return -100.0
 
 
 class CIFScorer:
