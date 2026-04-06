@@ -39,6 +39,7 @@ class MCTSEvaluator:
         self._num_valid = 0
         self._all_scores = []
         self._all_cifs = []
+        self._relaxed_structures = []  # ← ADD: Store relaxed structures
 
     def _postprocess(self, cif_str):
         # try to calculate the implied volume, to weed out very bad generations;
@@ -101,70 +102,83 @@ class MCTSEvaluator:
         sigma = np.std(self._all_scores)
         return 1 / (1 + math.e**(self._k*((score - mu)/sigma)))
 
-    def _write_cif_to_file(self, cif, score, reward, id, iter_num):
-        if self._out_dir is not None:
+    def _write_cif_to_file(self, cif, score, reward, id, iter_num, relaxed_struct=None):
+      if self._out_dir is not None:
 
-            if not os.path.exists(self._out_dir):
-                os.makedirs(self._out_dir)
+        if not os.path.exists(self._out_dir):
+            os.makedirs(self._out_dir)
 
-            cif_file = f"generated_{id}.cif"
-            cif_fname = os.path.join(self._out_dir, cif_file)
-            if not os.path.exists(cif_fname):
-                print(f"writing CIF to: {cif_fname}")
-                with open(cif_fname, "wt") as f:
-                    f.write(cif)
+        # Save original generated structure
+        cif_file = f"generated_{id}.cif"
+        cif_fname = os.path.join(self._out_dir, cif_file)
+        if not os.path.exists(cif_fname):
+            print(f"writing CIF to: {cif_fname}")
+            with open(cif_fname, "wt") as f:
+                f.write(cif)
 
-                # create .csv to keep track of results
-                csv_file = "results.csv"
-                csv_fname = os.path.join(self._out_dir, csv_file)
-                if not os.path.exists(csv_fname):
-                    print(f"creating {csv_fname} as it does not exist...")
-                    with open(csv_fname, "wt") as f:
-                        f.write("file,iteration,score,reward\n")
+        # ← ADD: Save relaxed structure if available
+        if relaxed_struct is not None:
+            relaxed_file = f"relaxed_{id}.cif"
+            relaxed_fname = os.path.join(self._out_dir, relaxed_file)
+            relaxed_struct.to(fmt="cif", filename=relaxed_fname)
+            print(f"writing relaxed CIF to: {relaxed_fname}")
 
-                # update .csv
-                with open(csv_fname, "a") as f:
-                    f.write(f"{cif_file},{iter_num},{score},{reward}\n")
+        # create .csv to keep track of results
+        csv_file = "results.csv"
+        csv_fname = os.path.join(self._out_dir, csv_file)
+        if not os.path.exists(csv_fname):
+            print(f"creating {csv_fname} as it does not exist...")
+            with open(csv_fname, "wt") as f:
+                f.write("file,iteration,score,reward\n")
+
+        # update .csv
+        with open(csv_fname, "a") as f:
+            f.write(f"{cif_file},{iter_num},{score},{reward}\n")
 
             else:
                 print(f"CIF not written to file as it already exists: {cif_fname}")
 
     def __call__(self, token_sequence, iter_num):
-        cif = self._tokenizer.decode(token_sequence)
+    cif = self._tokenizer.decode(token_sequence)
+    relaxed_struct = None  # ← ADD: Initialize
 
-        try:
-            cif = self._postprocess(cif)
-            valid, msg, bond_length_score = self._is_valid(cif)
-            if not valid:
-                print(f"CIF invalid: {msg}")
-                if bond_length_score is not None:
-                    return -(1 - bond_length_score)
-                else:
-                    return -1.0
-        except Exception as e:
-            print(f"exception while post-processing and validating: {e}")
-            print(traceback.format_exc())
-            return -1.0
+    try:
+        cif = self._postprocess(cif)
+        valid, msg, bond_length_score = self._is_valid(cif)
+        if not valid:
+            print(f"CIF invalid: {msg}")
+            if bond_length_score is not None:
+                return -(1 - bond_length_score)
+            else:
+                return -1.0
+    except Exception as e:
+        print(f"exception while post-processing and validating: {e}")
+        print(traceback.format_exc())
+        return -1.0
 
-        self._num_valid += 1
+    self._num_valid += 1
 
-        try:
-            print("invoking external scorer...")
-            score = self._scorer.score(cif)
-        except Exception as e:
-            print(f"exception while scoring: {e}")
-            print(traceback.format_exc())
-            return -1.0
+    try:
+        print("invoking external scorer...")
+        score = self._scorer.score(cif)
+        
+        # ← ADD: If using CHGNetScorer, also get relaxed structure
+        # This is optional - only if your scorer returns relaxed structures
+        
+    except Exception as e:
+        print(f"exception while scoring: {e}")
+        print(traceback.format_exc())
+        return -1.0
 
-        if math.isnan(score):
-            print(f"reward cannot be computed as score is nan")
-            return -1.0
+    if math.isnan(score):
+        print(f"reward cannot be computed as score is nan")
+        return -1.0
 
-        reward = self._get_reward(score)
+    reward = self._get_reward(score)
 
-        self._write_cif_to_file(cif, score, reward, self._num_valid, iter_num)
+    self._write_cif_to_file(cif, score, reward, self._num_valid, iter_num, relaxed_struct)
 
-        return reward
+    return reward
 
 
 class MCTSLanguageModel:
