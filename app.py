@@ -10,6 +10,97 @@ from ase.optimize import BFGS
 # OFFICIAL CHGNet IMPORT
 from chgnet.model.dynamics import CHGNetCalculator 
 
+# --- Dark Mode Theme Configuration ---
+def get_theme_colors(dark_mode):
+    """Returns color scheme based on dark mode setting"""
+    if dark_mode:
+        return {
+            "primary": "#00d4ff",
+            "secondary": "#1e1e1e",
+            "background": "#0e0e0e",
+            "text": "#ffffff",
+            "text_muted": "#aaaaaa",
+            "accent": "#00d4ff",
+            "3d_bg": "#0a0a0a",
+            "border": "#2a2a2a"
+        }
+    else:
+        return {
+            "primary": "#0096d6",
+            "secondary": "#f5f5f5",
+            "background": "#ffffff",
+            "text": "#1a1a1a",
+            "text_muted": "#666666",
+            "accent": "#0096d6",
+            "3d_bg": "#f9f9f9",
+            "border": "#e0e0e0"
+        }
+
+def apply_theme(colors):
+    """Apply theme to the Streamlit interface"""
+    theme_css = f"""
+    <style>
+        :root {{
+            --primary-color: {colors['primary']};
+            --secondary-color: {colors['secondary']};
+            --background-color: {colors['background']};
+            --text-color: {colors['text']};
+            --text-muted: {colors['text_muted']};
+            --accent-color: {colors['accent']};
+            --border-color: {colors['border']};
+        }}
+        
+        body {{
+            background-color: {colors['background']};
+            color: {colors['text']};
+        }}
+        
+        .header-title {{
+            text-align: center;
+            color: {colors['primary']};
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+            letter-spacing: 2px;
+        }}
+        
+        .subtitle {{
+            text-align: center;
+            color: {colors['text_muted']};
+            font-size: 1.1em;
+            margin-bottom: 2em;
+        }}
+        
+        .section-header {{
+            color: {colors['primary']};
+            border-bottom: 2px solid {colors['primary']};
+            padding-bottom: 0.5em;
+            margin-top: 1.5em;
+        }}
+        
+        .theme-toggle {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background-color: {colors['secondary']};
+            border-radius: 5px;
+            border: 1px solid {colors['border']};
+        }}
+        
+        .footer {{
+            text-align: center;
+            color: {colors['text_muted']};
+            margin-top: 3em;
+        }}
+    </style>
+    """
+    st.markdown(theme_css, unsafe_allow_html=True)
+
+# --- Initialize session state for dark mode ---
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True  # Default to dark mode
+
 # --- Official CHGNet Relaxation Function ---
 def relax_structure(cif_string, device):
     try:
@@ -67,46 +158,41 @@ def load_backend():
         return None, None, device, str(e)
 
 # --- UI Setup ---
-st.set_page_config(page_title="StructGen",layout="wide",initial_sidebar_state="expanded")
-# --- UI Configuration & Styling ---
-# Custom CSS for better organization
-st.markdown("""
-    <style>
-        .header-title {
-            text-align: center;
-            color: #00d4ff;
-            font-size: 3em;
-            font-weight: bold;
-            margin-bottom: 0.5em;
-            letter-spacing: 2px;
-        }
-        .subtitle {
-            text-align: center;
-            color: #888;
-            font-size: 1.1em;
-            margin-bottom: 2em;
-        }
-        .section-header {
-            color: #00d4ff;
-            border-bottom: 2px solid #00d4ff;
-            padding-bottom: 0.5em;
-            margin-top: 1.5em;
-        }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="StructGen", layout="wide", initial_sidebar_state="expanded")
+
+# Get current theme colors
+colors = get_theme_colors(st.session_state.dark_mode)
+
+# Apply theme
+apply_theme(colors)
 
 # --- Main Header ---
 st.markdown("<div class='header-title'>StructGen</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>AI-Powered Crystal Structure Generation & Optimization</div>", unsafe_allow_html=True)
 
 # Initialize
-# Initialize
 with st.spinner("Initializing AI & CHGNet..."):
     model, tokenizer, device, status_msg = load_backend()
 
-# --- Sidebar: System Status ---
+# --- Sidebar: System Status & Theme Toggle ---
 with st.sidebar:
-    st.markdown("<h2 style='color: #00d4ff;'>⚙️ System Configuration</h2>", unsafe_allow_html=True)
+    # Dark Mode Toggle
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.markdown("🌓 **Theme**")
+    with col2:
+        dark_mode_toggle = st.checkbox(
+            "Dark Mode",
+            value=st.session_state.dark_mode,
+            label_visibility="collapsed"
+        )
+        if dark_mode_toggle != st.session_state.dark_mode:
+            st.session_state.dark_mode = dark_mode_toggle
+            st.rerun()
+    
+    st.divider()
+    
+    st.markdown(f"<h2 style='color: {colors['primary']};'>⚙️ System Configuration</h2>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -120,7 +206,7 @@ with st.sidebar:
     st.divider()
     
     # --- Search Settings (Collapsible) ---
-    with st.expander(" Search Settings", expanded=True):
+    with st.expander("🔍 Search Settings", expanded=True):
         num_sims = st.slider("Number of Simulations", 5, 500, 150)
         width = st.slider("Tree Width (Top-K)", 2, 50, 20) 
         temp = st.slider("Temperature", 0.1, 1.5, 0.1)
@@ -128,12 +214,12 @@ with st.sidebar:
     st.divider()
     
     # --- Physical Constraints (Collapsible) ---
-    with st.expander(" Physical Constraints", expanded=True):
-        target_rho = st.slider("Target Density (g/cm³)", 1.0, 15.0, 3.51)
+    with st.expander("⚛️ Physical Constraints", expanded=True):
+        target_rho = st.slider("Target Density (g/cm��)", 1.0, 15.0, 3.51)
         c_puct = st.number_input("Exploration Weight (PUCT)", value=1.4, step=0.1)
-# Main Interface
+
 # --- Main Content Area ---
-st.markdown("<div class='section-header'>Input Configuration</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='section-header'>Input Configuration</div>", unsafe_allow_html=True)
 
 col1, col2 = st.columns([3, 1])
 with col1:
@@ -143,7 +229,7 @@ with col1:
         placeholder="e.g., C 2, NaCl, Fe3O4"
     )
 with col2:
-    run_button = st.button(" Run Optimization", type="primary", use_container_width=True)
+    run_button = st.button("▶️ Run Optimization", type="primary", use_container_width=True)
 
 # --- Main Optimization Process ---
 if run_button:
@@ -186,21 +272,21 @@ if run_button:
             st.divider()
             
             # --- Post-Processing Options ---
-            st.markdown("<div class='section-header'> Post-Processing Options</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-header'>📋 Post-Processing Options</div>", unsafe_allow_html=True)
             
-            with st.expander(" Structural Relaxation (CHGNet - Ceder Group AI)", expanded=False):
+            with st.expander("🔧 Structural Relaxation (CHGNet - Ceder Group AI)", expanded=False):
                 st.write("Apply CHGNet to refine atomic positions using machine learning force field")
                 do_relax = st.checkbox("Enable CHGNet Post-Optimization", value=False)
                 
                 if do_relax:
-                    with st.spinner(" CHGNet is pulling atoms into stable positions..."):
+                    with st.spinner("⚙️ CHGNet is pulling atoms into stable positions..."):
                         cif_output = relax_structure(cif_output, device)
-                        st.success(" Structure successfully relaxed by CHGNet!")
+                        st.success("✅ Structure successfully relaxed by CHGNet!")
             
             # --- Results Display ---
-            st.markdown("<div class='section-header'> Optimization Results</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='section-header'>📊 Optimization Results</div>", unsafe_allow_html=True)
             
-            st.info(f" Generation Successful! | Physical Score: **{best_score:.4f}**")
+            st.info(f"✨ Generation Successful! | Physical Score: **{best_score:.4f}**")
             
             col1, col2 = st.columns([1.5, 1])
             
@@ -213,18 +299,18 @@ if run_button:
                                    'stick': {'colorscheme': 'Jmol', 'radius': 0.1}})
                     view.addUnitCell()
                     view.replicateUnitCell(2, 2, 2)
-                    view.setBackgroundColor('#121212')
+                    view.setBackgroundColor(colors['3d_bg'])
                     view.zoomTo()
                     st.components.v1.html(view._make_html(), height=500)
                 except Exception as ve:
-                    st.error(" 3D Viewer Error - Unable to display structure")
+                    st.error("❌ 3D Viewer Error - Unable to display structure")
 
             with col2:
                 st.markdown("####  Structure Data")
                 
                 # Download button
                 st.download_button(
-                    label=" Download CIF File",
+                    label="📥 Download CIF File",
                     data=cif_output,
                     file_name=f"{clean_formula}_opt.cif",
                     mime="text/plain",
@@ -232,7 +318,7 @@ if run_button:
                 )
                 
                 # Raw CIF Display
-                with st.expander(" Show Raw CIF Text", expanded=False):
+                with st.expander("📄 Show Raw CIF Text", expanded=False):
                     st.code(cif_output, language="text")
                 
                 # Summary Stats
@@ -248,10 +334,11 @@ if run_button:
         st.error("The optimization process crashed.")
         with st.expander("Error Details", expanded=False):
              st.code(traceback.format_exc())
+
 st.divider()
 st.markdown(
-    """
-    <div style='text-align: center; color: #888; margin-top: 3em;'>
+    f"""
+    <div class='footer'>
         <p>StructGen • AI-Powered Crystal Structure Generation</p>
         <p style='font-size: 0.8em;'>Powered by CrystalLM & CHGNet</p>
     </div>
