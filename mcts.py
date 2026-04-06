@@ -135,14 +135,14 @@ class MCTSEvaluator:
         with open(csv_fname, "a") as f:
             f.write(f"{cif_file},{iter_num},{score},{reward}\n")
 
-            else:
-                print(f"CIF not written to file as it already exists: {cif_fname}")
+        else:
+            print(f"CIF not written to file as it already exists: {cif_fname}")
 
     def __call__(self, token_sequence, iter_num):
-    cif = self._tokenizer.decode(token_sequence)
-    relaxed_struct = None  # ← ADD: Initialize
+      cif = self._tokenizer.decode(token_sequence)
+      relaxed_struct = None  # ← ADD: Initialize
 
-    try:
+      try:
         cif = self._postprocess(cif)
         valid, msg, bond_length_score = self._is_valid(cif)
         if not valid:
@@ -151,7 +151,7 @@ class MCTSEvaluator:
                 return -(1 - bond_length_score)
             else:
                 return -1.0
-    except Exception as e:
+      except Exception as e:
         print(f"exception while post-processing and validating: {e}")
         print(traceback.format_exc())
         return -1.0
