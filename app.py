@@ -67,7 +67,7 @@ def load_backend():
         return None, None, device, str(e)
 
 # --- UI Setup ---
-st.set_page_config(page_title="Crystal-Gen Pro", layout="wide")
+st.set_page_config(page_title="Crystal-Gen", layout="wide")
 st.markdown("<h1 style='text-align: center; color: #00d4ff;'>Crystal-Gen</h1>", unsafe_allow_html=True)
 
 # Initialize
