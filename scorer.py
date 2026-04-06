@@ -2,39 +2,42 @@ import random
 import zmq
 import numpy as np
 from pymatgen.core import Structure
-from chgnet.model import CHGNet
-from pymatgen.core import Structure
-import streamlit as st
-from chgnet.model import CHGNet
-from chgnet.model.dynamics import CHGNetCalculator
+from chgnet.model import CHGNet  # FIX: Correct import
+from chgnet.model.dynamics import CHGNetCalculator  # ADD: For relaxation
+import numpy as np
 
 class CHGNetScorer:
     def __init__(self):
-        # Load the pretrained CHGNet model for predictions
+        # FIX 1: Load model correctly
         self.model = CHGNet.load()
+        # FIX 2: Remove Streamlit dependency - scorer.py shouldn't depend on Streamlit
         print("CHGNet Loaded: Ready for Stability Prediction")
-        # Don't use Streamlit in a scorer class
+        # NOTE: Removed st.info() - this is a library, not a UI component
 
     def score(self, cif_string: str) -> float:
         try:
+            # FIX 3: Convert CIF to Structure
             struct = Structure.from_str(cif_string, fmt="cif")
             
-            # Method 1: Direct prediction (no relaxation)
-            results = self.model.predict_structure(struct)
-            # results is a dict with keys: 'e' (energy), 'f' (forces), 's' (stress)
-            energy = results['e']  # Total energy (not energy_per_atom)
+            # FIX 4: Use correct API for predictions
+            # predict_structure returns dict with 'e', 'f', 's' keys
+            prediction = self.model.predict_structure(struct)
             
-            # Method 2: Alternative with calculator for full relaxation
-            # calc = CHGNetCalculator()
-            # relaxed_struct = calc.predict_structure(struct)
-            # energy = relaxed_struct.energy  # if available
+            # FIX 5: Access correct key - 'e' for total energy, not 'energy'
+            energy = prediction['e']
             
-            # Return negative energy (more negative = more stable = higher score)
-            return -energy
+            # FIX 6: Correct reward logic
+            # Lower (more negative) energy = more stable = higher reward
+            reward = -energy
+            
+            return float(reward)
             
         except Exception as e:
-            print(f"CHGNet scoring failed: {e}")
-            return -100.0
+            # FIX 7: Better error handling
+            print(f"CHGNetScorer error: {e}")
+            return -10.0
+
+
 class CIFScorer:
     """
     An abstract CIF scorer. A scorer provides a heuristic score for a completed CIF.
@@ -65,16 +68,11 @@ class HeuristicPhysicalScorer(CIFScorer):
             shape_error = (abs(a - b) + abs(b - c) + abs(a - c)) * 15.0
             
             # 3. Angle Penalty (Alpha, Beta, Gamma should be 90)
-            # This kills Hexagonal/Trigonal phases (like the 120° you saw)
             angles = struct.lattice.angles
             angle_error = sum([abs(ang - 90.0) for ang in angles]) * 2.0
             
             # 4. Axis Penalty (Max length)
-            # Real NaCl (Z=4) shouldn't have any side longer than ~7.0 A
-            # This prevents the 'layer-cake' Cmcm structure (b=12.3)
-            # In scorer.py
             axis_penalty = 20.0 if max(a, b, c) > 7.0 else 0.0
-# Ensure this is being SUBTRACTED from the score
 
             # 5. Min Distance Check
             min_dist = struct.get_all_neighbors(1.0)[0][0].nn_distance if len(struct) > 1 else 0
@@ -86,7 +84,8 @@ class HeuristicPhysicalScorer(CIFScorer):
             return -(rho_error + shape_error + angle_error + axis_penalty + dist_penalty) + sym_bonus
         except:
             return -100.0
-        
+
+
 class ZMQScorer(CIFScorer):
     """
     Remains here for when you resolve the ALIGNN/DGL installation.
