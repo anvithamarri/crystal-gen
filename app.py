@@ -100,27 +100,53 @@ st.markdown("<div class='header-title'>StructGen</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>AI-Powered Crystal Structure Generation & Optimization</div>", unsafe_allow_html=True)
 
 # Initialize
+# Initialize
 with st.spinner("Initializing AI & CHGNet..."):
     model, tokenizer, device, status_msg = load_backend()
 
-# Sidebar: Config
-st.sidebar.header("System Status")
-st.sidebar.success(f"Hardware: {device.upper()}")
-
-st.sidebar.divider()
-st.sidebar.header("Search Settings")
-num_sims = st.sidebar.slider("Simulations", 5, 500, 150)
-width = st.sidebar.slider("Tree Width (Top-K)", 2, 50, 20) 
-temp = st.sidebar.slider("Temperature", 0.1, 1.5, 0.1)
-
-st.sidebar.subheader("Physical Constraints")
-target_rho = st.sidebar.slider("Target Density (g/cm³)", 1.0, 15.0, 3.51)
-c_puct = st.sidebar.number_input("Exploration Weight", value=1.4)
-
+# --- Sidebar: System Status ---
+with st.sidebar:
+    st.markdown("<h2 style='color: #00d4ff;'>⚙️ System Configuration</h2>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Hardware", device.upper())
+    with col2:
+        st.metric("Status", "Ready" if status_msg == "Success" else " Error")
+    
+    if status_msg != "Success":
+        st.error(f"Backend Error: {status_msg}")
+    
+    st.divider()
+    
+    # --- Search Settings (Collapsible) ---
+    with st.expander(" Search Settings", expanded=True):
+        num_sims = st.slider("Number of Simulations", 5, 500, 150)
+        width = st.slider("Tree Width (Top-K)", 2, 50, 20) 
+        temp = st.slider("Temperature", 0.1, 1.5, 0.1)
+    
+    st.divider()
+    
+    # --- Physical Constraints (Collapsible) ---
+    with st.expander(" Physical Constraints", expanded=True):
+        target_rho = st.slider("Target Density (g/cm³)", 1.0, 15.0, 3.51)
+        c_puct = st.number_input("Exploration Weight (PUCT)", value=1.4, step=0.1)
 # Main Interface
-formula = st.text_input("Chemical Formula", value="C 2")
+# --- Main Content Area ---
+st.markdown("<div class='section-header'>Input Configuration</div>", unsafe_allow_html=True)
 
-if st.button("Run Optimization", type="primary"):
+col1, col2 = st.columns([3, 1])
+with col1:
+    formula = st.text_input(
+        "Chemical Formula",
+        value="C 2",
+        placeholder="e.g., C 2, NaCl, Fe3O4"
+    )
+with col2:
+    run_button = st.button(" Run Optimization", type="primary", use_container_width=True)
+
+# --- Main Optimization Process ---
+if run_button:
     from scorer import CHGNetScorer
     from model_utils import GPTConfig
     from mcts import MCTSSampler, MCTSEvaluator, PUCTSelector, ContextSensitiveTreeBuilder
@@ -156,44 +182,78 @@ if st.button("Run Optimization", type="primary"):
         if best_data:
             best_seq, best_score = best_data
             cif_output = tokenizer.decode(best_seq)
+                        st.divider()
             
-            st.divider()
+            # --- Post-Processing Options ---
+            st.markdown("<div class='section-header'> Post-Processing Options</div>", unsafe_allow_html=True)
             
-            # --- OFFICIAL CHGNet STEP ---
-            with st.expander("Structural Relaxation (Ceder Group AI)", expanded=False):
+            with st.expander(" Structural Relaxation (CHGNet - Ceder Group AI)", expanded=False):
+                st.write("Apply CHGNet to refine atomic positions using machine learning force field")
                 do_relax = st.checkbox("Enable CHGNet Post-Optimization", value=False)
+                
+                if do_relax:
+                    with st.spinner(" CHGNet is pulling atoms into stable positions..."):
+                        cif_output = relax_structure(cif_output, device)
+                        st.success(" Structure successfully relaxed by CHGNet!")
             
-            if do_relax:
-                with st.spinner("CHGNet is pulling atoms into stable positions..."):
-                    cif_output = relax_structure(cif_output, device)
-                    st.success("Structure successfully relaxed by CHGNet!")
+            # --- Results Display ---
+            st.markdown("<div class='section-header'> Optimization Results</div>", unsafe_allow_html=True)
             
-            # Results Layout
-            st.info(f"Generation Successful! (Physical Score: {best_score:.4f})")
+            st.info(f" Generation Successful! | Physical Score: **{best_score:.4f}**")
+            
             col1, col2 = st.columns([1.5, 1])
+            
             with col1:
-                st.subheader("3D Crystal Lattice")
+                st.markdown("####  3D Crystal Lattice")
                 try:
                     view = py3Dmol.view(width=700, height=500)
                     view.addModel(cif_output, 'cif')
                     view.setStyle({'sphere': {'colorscheme': 'Jmol', 'scale': 0.3}, 
                                    'stick': {'colorscheme': 'Jmol', 'radius': 0.1}})
                     view.addUnitCell()
-                    view.replicateUnitCell(2, 2, 2) # Show supercell for symmetry
-                    view.setBackgroundColor('#121212') # Pro Dark Look
+                    view.replicateUnitCell(2, 2, 2)
+                    view.setBackgroundColor('#121212')
                     view.zoomTo()
                     st.components.v1.html(view._make_html(), height=500)
                 except Exception as ve:
-                    st.error("Viewer error.")
+                    st.error(" 3D Viewer Error - Unable to display structure")
 
             with col2:
-                st.subheader("Structure Data")
-                st.download_button("Download CIF", cif_output, f"{clean_formula}_opt.cif")
-                with st.expander("Show Raw CIF Text"):
+                st.markdown("####  Structure Data")
+                
+                # Download button
+                st.download_button(
+                    label=" Download CIF File",
+                    data=cif_output,
+                    file_name=f"{clean_formula}_opt.cif",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+                
+                # Raw CIF Display
+                with st.expander(" Show Raw CIF Text", expanded=False):
                     st.code(cif_output, language="text")
+                
+                # Summary Stats
+                st.markdown("#####  Metadata")
+                st.metric("Formula", clean_formula)
+                st.metric("Score", f"{best_score:.4f}")
+            
+           
         else:
             st.error("No valid structure found. Try increasing 'Width' to 25.")
 
     except Exception:
         st.error("The optimization process crashed.")
+        with st.expander("Error Details", expanded=False):
         st.code(traceback.format_exc())
+st.divider()
+st.markdown(
+    """
+    <div style='text-align: center; color: #888; margin-top: 3em;'>
+        <p>StructGen • AI-Powered Crystal Structure Generation</p>
+        <p style='font-size: 0.8em;'>Powered by CrystalLM & CHGNet</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
