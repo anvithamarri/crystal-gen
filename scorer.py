@@ -3,8 +3,6 @@ import zmq
 import numpy as np
 from pymatgen.core import Structure
 from chgnet.model import CHGNet  # FIX: Correct import
-from chgnet.model.dynamics import CHGNetCalculator  # ADD: For relaxation
-import numpy as np
 
 class CHGNetScorer:
     def __init__(self):
