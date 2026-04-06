@@ -182,7 +182,7 @@ if run_button:
         if best_data:
             best_seq, best_score = best_data
             cif_output = tokenizer.decode(best_seq)
-        
+    
             st.divider()
             
             # --- Post-Processing Options ---
@@ -247,7 +247,7 @@ if run_button:
     except Exception:
         st.error("The optimization process crashed.")
         with st.expander("Error Details", expanded=False):
-        st.code(traceback.format_exc())
+             st.code(traceback.format_exc())
 st.divider()
 st.markdown(
     """
